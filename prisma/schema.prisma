@@ -1,0 +1,444 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum PricingType {
+  HOURLY
+  DAILY
+  MONTHLY
+  FIXED
+  FREE
+}
+
+enum BookingMode {
+  INSTANT
+  APPROVAL_REQUIRED
+}
+
+enum BlockedTimeType {
+  MANUAL
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  CUSTOMER
+  STAFF
+}
+
+enum BookingActivityType {
+  CREATED
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+  CHECKED_IN
+  COMPLETED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  ONLINE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+model User {
+  id                String               @id @default(cuid())
+  name              String
+  email             String               @unique
+  passwordHash      String
+  memberships       OrganizationMember[]
+  createdBookings   Booking[]            @relation("BookingCreatedBy")
+  bookingActivities BookingActivity[]
+  paymentsRecorded  Payment[]            @relation("PaymentRecordedBy")
+  isPlatformAdmin   Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model Organization {
+  id                    String                 @id @default(cuid())
+  name                  String
+  slug                  String                 @unique
+  logoUrl               String?
+  email                 String?
+  phone                 String?
+  website               String?
+  description           String?
+  timezone              String                 @default("Asia/Karachi")
+  members               OrganizationMember[]
+  locations             Location[]
+  floors                Floor[]
+  categories            WorkspaceCategory[]
+  resources             Resource[]
+  amenities             Amenity[]
+  bookingPolicies       BookingPolicy[]
+  availabilityRules     AvailabilityRule[]
+  availabilityOverrides AvailabilityOverride[]
+  blockedTimes          BlockedTime[]
+  customers             Customer[]
+  bookings              Booking[]
+  bookingActivities     BookingActivity[]
+  payments              Payment[]
+  subscription          Subscription?
+  isActive              Boolean                  @default(true)
+  supportNotes          String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String?
+  invitedEmail   String
+  invitedName    String?
+  role           OrganizationRole @default(STAFF)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, invitedEmail])
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Location {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  city           String?
+  country        String?
+  timezone       String?
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  floors         Floor[]
+  resources      Resource[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Floor {
+  id             String       @id @default(cuid())
+  organizationId String
+  locationId     String
+  name           String
+  sortOrder      Int          @default(0)
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  location       Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  resources      Resource[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([locationId, name])
+  @@index([organizationId])
+}
+
+model WorkspaceCategory {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  color          String       @default("#0f766e")
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resources      Resource[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Resource {
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  locationId            String
+  floorId               String?
+  categoryId            String?
+  name                  String
+  slug                  String
+  description           String?
+  capacity              Int                    @default(1)
+  pricingType           PricingType            @default(HOURLY)
+  price                 Decimal                @default(0) @db.Decimal(10, 2)
+  currency              String                 @default("PKR")
+  isPublic              Boolean                @default(true)
+  isActive              Boolean                @default(true)
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  location              Location               @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  floor                 Floor?                 @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  category              WorkspaceCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  photos                ResourcePhoto[]
+  amenities             ResourceAmenity[]
+  bookingPolicy         BookingPolicy?
+  availabilityRules     AvailabilityRule[]
+  availabilityOverrides AvailabilityOverride[]
+  blockedTimes          BlockedTime[]
+  bookings              Booking[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, locationId])
+}
+
+model ResourcePhoto {
+  id                 String   @id @default(cuid())
+  resourceId         String
+  url                String
+  cloudinaryPublicId String?
+  alt                String?
+  sortOrder          Int      @default(0)
+  resource           Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+
+  @@index([resourceId])
+}
+
+model Amenity {
+  id             String            @id @default(cuid())
+  organizationId String
+  name           String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resources      ResourceAmenity[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model ResourceAmenity {
+  resourceId String
+  amenityId  String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, amenityId])
+  @@index([amenityId])
+}
+
+model BookingPolicy {
+  id                      String       @id @default(cuid())
+  organizationId          String
+  resourceId              String       @unique
+  minimumDurationMinutes  Int          @default(60)
+  maximumDurationMinutes  Int          @default(480)
+  bookingIncrementMinutes Int          @default(30)
+  minimumNoticeMinutes    Int          @default(0)
+  maximumAdvanceDays      Int          @default(90)
+  bufferBeforeMinutes     Int          @default(0)
+  bufferAfterMinutes      Int          @default(0)
+  bookingMode             BookingMode  @default(INSTANT)
+  organization            Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resource                Resource     @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model AvailabilityRule {
+  id             String       @id @default(cuid())
+  organizationId String
+  resourceId     String
+  dayOfWeek      Int
+  startMinute    Int
+  endMinute      Int
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resource       Resource     @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([resourceId, dayOfWeek])
+  @@index([organizationId])
+}
+
+model AvailabilityOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  resourceId     String
+  date           DateTime     @db.Date
+  isClosed       Boolean      @default(false)
+  startMinute    Int?
+  endMinute      Int?
+  reason         String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resource       Resource     @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([resourceId, date])
+  @@index([organizationId, date])
+}
+
+model BlockedTime {
+  id             String          @id @default(cuid())
+  organizationId String
+  resourceId     String
+  startsAt       DateTime        @db.Timestamptz(3)
+  endsAt         DateTime        @db.Timestamptz(3)
+  type           BlockedTimeType @default(MANUAL)
+  reason         String?
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resource       Resource        @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([resourceId, startsAt, endsAt])
+  @@index([organizationId])
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  email          String
+  phone          String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookings       Booking[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+}
+
+model Booking {
+  id               String            @id @default(cuid())
+  organizationId   String
+  resourceId       String
+  customerId       String
+  createdByUserId  String?
+  confirmationCode String            @unique
+  startsAt         DateTime          @db.Timestamptz(3)
+  endsAt           DateTime          @db.Timestamptz(3)
+  bufferStartsAt   DateTime          @db.Timestamptz(3)
+  bufferEndsAt     DateTime          @db.Timestamptz(3)
+  status           BookingStatus     @default(PENDING)
+  source           BookingSource     @default(STAFF)
+  partySize        Int               @default(1)
+  customerNotes    String?
+  internalNotes    String?
+  quotedAmount     Decimal           @default(0) @db.Decimal(10, 2)
+  currency         String            @default("PKR")
+  paymentStatus    PaymentStatus      @default(UNPAID)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  resource         Resource          @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy        User?             @relation("BookingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  activities       BookingActivity[]
+  payments         Payment[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([resourceId, startsAt, endsAt])
+  @@index([organizationId, status, startsAt])
+  @@index([customerId])
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  organizationId   String
+  bookingId        String
+  recordedByUserId String?
+  amount           Decimal       @db.Decimal(10, 2)
+  currency         String        @default("PKR")
+  status           PaymentStatus
+  method           PaymentMethod
+  reference        String?
+  notes            String?
+  paidAt           DateTime      @default(now()) @db.Timestamptz(3)
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  booking          Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  recordedBy       User?         @relation("PaymentRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([organizationId, paidAt])
+  @@index([bookingId])
+}
+
+model Plan {
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  description  String?
+  monthlyPrice Decimal        @default(0) @db.Decimal(10, 2)
+  currency     String         @default("USD")
+  isActive     Boolean        @default(true)
+  subscriptions Subscription[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String             @unique
+  planId         String
+  status         SubscriptionStatus @default(ACTIVE)
+  startsAt       DateTime           @default(now()) @db.Timestamptz(3)
+  endsAt         DateTime?          @db.Timestamptz(3)
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([planId, status])
+}
+
+model BookingActivity {
+  id             String              @id @default(cuid())
+  organizationId String
+  bookingId      String
+  userId         String?
+  type           BookingActivityType
+  description    String
+  metadata       Json?
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  booking        Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+
+  @@index([bookingId, createdAt])
+  @@index([organizationId])
+}

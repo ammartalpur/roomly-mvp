@@ -1,0 +1,10 @@
+import { updateOrganizationAction } from "@/app/actions/foundation";
+import { FormButton } from "@/components/form-button";
+import { PageHeader } from "@/components/page-header";
+import { requireMembership } from "@/lib/auth";
+
+export default async function OrganizationPage() {
+  const { membership } = await requireMembership();
+  const org = membership.organization;
+  return <div className="mx-auto max-w-4xl"><PageHeader eyebrow="Settings" title="Business profile" description="The core identity and contact details shared across your Roomly workspace." /><form action={updateOrganizationAction} className="panel grid gap-5 p-6 sm:grid-cols-2 sm:p-8"><label className="field"><span>Business name</span><input name="name" defaultValue={org.name} required /></label><label className="field"><span>Public slug</span><input value={org.slug} disabled /></label><label className="field sm:col-span-2"><span>Logo URL</span><input name="logoUrl" type="url" defaultValue={org.logoUrl ?? ""} placeholder="https://res.cloudinary.com/..." /></label><label className="field"><span>Contact email</span><input name="email" type="email" defaultValue={org.email ?? ""} /></label><label className="field"><span>Phone</span><input name="phone" defaultValue={org.phone ?? ""} placeholder="+92 300 1234567" /></label><label className="field"><span>Website</span><input name="website" type="url" defaultValue={org.website ?? ""} placeholder="https://yourbusiness.com" /></label><label className="field"><span>Timezone</span><select name="timezone" defaultValue={org.timezone}><option>Asia/Karachi</option><option>Asia/Dubai</option><option>Europe/London</option><option>America/New_York</option><option>America/Los_Angeles</option><option>UTC</option></select></label><label className="field sm:col-span-2"><span>Description</span><textarea name="description" rows={4} defaultValue={org.description ?? ""} placeholder="Tell customers about your coworking business." /></label><div className="sm:col-span-2"><FormButton>Save business profile</FormButton></div></form></div>;
+}

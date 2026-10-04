@@ -1,4 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Roomly
+
+Foundation for a multi-tenant coworking management SaaS.
+
+### Included
+
+- Local email/password authentication with signed, HTTP-only sessions
+- Organization onboarding and business profile management
+- Owner, admin, and staff memberships with pending invitations
+- Locations, optional floors/zones, and active status controls
+- Workspace categories, resources, amenities, pricing, photos, and visibility controls
+- Organization-scoped reads and writes
+- Per-workspace weekly hours, date overrides, notice windows, duration limits, increments, and buffers
+- Manual and maintenance blocks
+- Centralized available-slot calculation and booking validation
+- Staff booking creation, rescheduling, cancellation, confirmation, check-in, completion, and no-show handling
+- Customer records, confirmation numbers, internal notes, and booking activity history
+- PostgreSQL exclusion constraint preventing concurrent overlapping active bookings
+- Live operations overview with today, occupancy, availability, upcoming bookings, and exceptions
+- Day, week, and month operations calendar with workspace, location, and status filters
+- Resource timeline, manual blocks, searchable booking management, and customer histories
+- Operational utilization reports for 7, 30, and 90-day periods
+
+### Local setup
+
+1. Copy `.env.example` to `.env` and set a PostgreSQL connection string and strong session secret.
+2. Run `npx prisma migrate dev --name foundation`.
+3. Run `npm run dev` and open `http://localhost:3000`.
+
+Run `npm run verify:phase2` to verify database-level overlap protection without leaving test data behind.
+
+This implementation currently includes Foundation, the Core Engine, and Phase 3 Operations.
 
 ## Getting Started
 

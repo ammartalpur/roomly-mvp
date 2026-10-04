@@ -1,0 +1,9 @@
+import { Building2 } from "lucide-react";
+import { createOrganizationAction } from "@/app/actions/foundation";
+import { FormButton } from "@/components/form-button";
+import { requireUser } from "@/lib/auth";
+
+export default async function OnboardingPage() {
+  const user = await requireUser();
+  return <main className="min-h-screen bg-[#f7f8f5] px-6 py-12"><div className="mx-auto max-w-2xl"><div className="mb-10 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-2xl bg-[#173f35] text-white"><Building2 size={19} /></span><div><p className="text-sm text-[#68736e]">Signed in as {user.email}</p><p className="font-semibold">Set up your business</p></div></div><div className="panel p-7 sm:p-10"><span className="eyebrow">Step 1 of 1</span><h1 className="mt-4 text-3xl font-semibold tracking-[-0.04em]">Create your organization</h1><p className="mt-2 text-[#68736e]">This becomes the private home for your locations, workspaces, and team.</p><form action={createOrganizationAction} className="mt-8 grid gap-5 sm:grid-cols-2"><label className="field sm:col-span-2"><span>Business name</span><input name="name" placeholder="WorkNest Coworking" required /></label><label className="field"><span>Public slug</span><div className="input-prefix"><span>roomly.app/</span><input name="slug" placeholder="worknest" /></div></label><label className="field"><span>Contact email</span><input name="email" type="email" defaultValue={user.email} /></label><label className="field sm:col-span-2"><span>Timezone</span><select name="timezone" defaultValue="Asia/Karachi"><option>Asia/Karachi</option><option>Asia/Dubai</option><option>Europe/London</option><option>America/New_York</option><option>America/Los_Angeles</option><option>UTC</option></select></label><div className="sm:col-span-2"><FormButton>Create organization</FormButton></div></form></div></div></main>;
+}

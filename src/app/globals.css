@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f6f3;
+  --foreground: #16211c;
 }
 
 @theme inline {
@@ -12,15 +12,85 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
+
+html { background: var(--background); }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+
+.button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1;
+  transition: 160ms ease;
+  cursor: pointer;
+}
+
+.button:disabled { cursor: not-allowed; opacity: .6; }
+.button-primary { background: #173f35; color: white; border: 1px solid #173f35; box-shadow: 0 1px 2px rgba(20, 50, 42, .18); }
+.button-primary:hover { background: #0e3028; }
+.button-secondary { background: white; color: #2f4038; border: 1px solid #d7ddd8; }
+.button-secondary:hover { border-color: #abb8b0; background: #fafbfa; }
+.button-ghost { color: #31453b; border: 1px solid transparent; }
+.button-ghost:hover { background: #e9ede9; }
+.button-danger { min-height: 34px; background: #fff; color: #b42318; border: 1px solid #f1c7c3; }
+.button-danger:hover { background: #fff5f4; }
+.button-lg { min-height: 50px; border-radius: .9rem; padding-inline: 1.25rem; }
+.button-sm { min-height: 34px; border-radius: .65rem; padding: .45rem .7rem; font-size: .75rem; }
+
+.panel { border: 1px solid #dfe4df; border-radius: 1.25rem; background: #fff; box-shadow: 0 1px 2px rgba(32, 50, 42, .03); }
+.eyebrow { display: inline-flex; align-items: center; border-radius: 999px; background: #e8f2dc; color: #3f6327; padding: .4rem .7rem; font-size: .7rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.badge { display: inline-flex; align-items: center; border: 1px solid #d6ddd7; border-radius: 999px; padding: .25rem .55rem; color: #5f6d65; font-size: .68rem; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+.badge-green { border-color: #b9ddc6; background: #edf9f0; color: #33704a; }
+.booking-pending { border-color: #ead49d; background: #fff8e7; color: #7c5d13; }
+.booking-confirmed { border-color: #add7bd; background: #edf9f1; color: #2e6b46; }
+.booking-checked_in { border-color: #a9d6db; background: #ecf8f9; color: #25646b; }
+.booking-completed { border-color: #c7d0ca; background: #f2f5f3; color: #4e5d55; }
+.booking-cancelled, .booking-no_show { border-color: #efc4c0; background: #fff3f2; color: #a33c34; }
+
+.field { display: flex; flex-direction: column; gap: .45rem; color: #3c4a43; font-size: .78rem; font-weight: 650; }
+.field input, .field select, .field textarea, input:not([type="hidden"]), select, textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #d6ddd7;
+  border-radius: .75rem;
+  background: #fff;
+  color: #19231e;
+  padding: .68rem .8rem;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.field textarea, textarea { resize: vertical; }
+.field input:focus, .field select:focus, .field textarea:focus, input:not([type="hidden"]):focus, select:focus, textarea:focus { border-color: #4d8776; box-shadow: 0 0 0 3px rgba(63, 121, 103, .12); }
+.field input:disabled { background: #f1f3f1; color: #7a837e; }
+.field input[type="checkbox"], input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  min-height: auto;
+  flex: none;
+  padding: 0;
+  accent-color: #173f35;
+  box-shadow: none;
+}
+.field input[type="color"] { padding: .3rem; }
+.compact-select { min-height: 34px; width: auto; border: 1px solid #d6ddd7; border-radius: .65rem; background: white; padding: .35rem 1.8rem .35rem .55rem; font-size: .75rem; }
+.input-prefix { display: flex; min-height: 44px; align-items: center; overflow: hidden; border: 1px solid #d6ddd7; border-radius: .75rem; background: white; }
+.input-prefix span { padding-left: .8rem; color: #89928d; font-weight: 500; }
+.input-prefix input { min-height: 42px; border: 0; border-radius: 0; box-shadow: none !important; padding-left: .2rem; }
+
+@media (max-width: 1023px) { body { padding-bottom: 70px; } }
