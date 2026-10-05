@@ -7,6 +7,7 @@ import { AvailabilityService } from "@/lib/availability";
 import { requireMembership } from "@/lib/auth";
 import { formatInTimezone, localDateTimeToUtc } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
+import { calculateBookingPrice } from "@/lib/pricing";
 
 export type BookingFormState = { error?: string } | undefined;
 
@@ -39,6 +40,7 @@ export async function createBookingAction(_: BookingFormState, formData: FormDat
     const startsAt = localDateTimeToUtc(value(formData, "startsAt"), timezone);
     const endsAt = localDateTimeToUtc(value(formData, "endsAt"), timezone);
     const validated = await AvailabilityService.validateBookingRequest({ organizationId: membership.organizationId, resourceId, startsAt, endsAt });
+    const quotedAmount = calculateBookingPrice({ pricingType: resource.pricingType, price: resource.price, startsAt: validated.startsAt, endsAt: validated.endsAt });
     const email = value(formData, "customerEmail").toLowerCase();
     const name = value(formData, "customerName");
     if (!name || !email.includes("@")) return { error: "Customer name and a valid email are required" };
@@ -67,6 +69,8 @@ export async function createBookingAction(_: BookingFormState, formData: FormDat
           partySize,
           customerNotes: value(formData, "customerNotes") || null,
           internalNotes: value(formData, "internalNotes") || null,
+          quotedAmount,
+          currency: resource.currency,
           activities: {
             create: {
               organizationId: membership.organizationId,
@@ -101,10 +105,11 @@ export async function rescheduleBookingAction(_: BookingFormState, formData: For
     const startsAt = localDateTimeToUtc(value(formData, "startsAt"), timezone);
     const endsAt = localDateTimeToUtc(value(formData, "endsAt"), timezone);
     const validated = await AvailabilityService.validateBookingRequest({ organizationId: membership.organizationId, resourceId: booking.resourceId, startsAt, endsAt, excludeBookingId: booking.id });
+    const quotedAmount = calculateBookingPrice({ pricingType: booking.resource.pricingType, price: booking.resource.price, startsAt: validated.startsAt, endsAt: validated.endsAt });
     await prisma.$transaction([
       prisma.booking.update({
         where: { id },
-        data: { startsAt: validated.startsAt, endsAt: validated.endsAt, bufferStartsAt: validated.bufferStartsAt, bufferEndsAt: validated.bufferEndsAt },
+        data: { startsAt: validated.startsAt, endsAt: validated.endsAt, bufferStartsAt: validated.bufferStartsAt, bufferEndsAt: validated.bufferEndsAt, quotedAmount, currency: booking.resource.currency },
       }),
       prisma.bookingActivity.create({
         data: {

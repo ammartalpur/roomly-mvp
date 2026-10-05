@@ -20,6 +20,9 @@ Foundation for a multi-tenant coworking management SaaS.
 - Day, week, and month operations calendar with workspace, location, and status filters
 - Resource timeline, manual blocks, searchable booking management, and customer histories
 - Operational utilization reports for 7, 30, and 90-day periods
+- Manual payment tracking for unpaid, partial, paid, and refunded bookings
+- Revenue, cancellation, no-show, most-booked workspace, and location reporting
+- Separate platform administration for businesses, users, plans, subscriptions, access, and support notes
 
 ### Local setup
 
@@ -29,7 +32,27 @@ Foundation for a multi-tenant coworking management SaaS.
 
 Run `npm run verify:phase2` to verify database-level overlap protection without leaving test data behind.
 
-This implementation currently includes Foundation, the Core Engine, and Phase 3 Operations.
+This implementation currently includes Foundation, the Core Engine, Phase 3 Operations, and Phase 5 Reporting, Payments, and SaaS Controls.
+
+### Hosted PostgreSQL with Supabase
+
+Roomly continues to use Prisma and the existing local email/password authentication. Supabase is used only as hosted PostgreSQL. Set `DATABASE_URL` to the Supabase transaction-pooler URL for the running app and `DIRECT_URL` to the direct Supabase database URL for migrations, then run `npx prisma migrate deploy --config prisma7.config.ts`.
+
+The public Supabase URL and publishable key do not grant database migration access and are not substitutes for these PostgreSQL connection strings.
+
+### Deploy to Vercel
+
+1. Import this repository into Vercel as a Next.js project.
+2. Add these environment variables for Production, Preview, and Development as appropriate:
+   - `DATABASE_URL` — Supabase transaction-mode pooler URL on port `6543`.
+   - `DIRECT_URL` — Supabase session-mode pooler URL on port `5432`.
+   - `SESSION_SECRET` — a new random secret of at least 32 characters.
+   - `PLATFORM_ADMIN_EMAILS` — comma-separated email addresses allowed into `/admin`.
+   - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` when photo uploads are enabled.
+3. Before the first deployment of a new database, run `npm run db:deploy` from a trusted environment with the production `DIRECT_URL`. The current Supabase database is already migrated.
+4. Deploy. Vercel runs `npm install`, generates the Prisma client during `postinstall`, and executes `npm run build`.
+
+Do not run database migrations from every Vercel build. Preview and production deployments can overlap, while schema migrations should run once through the explicit `db:deploy` command.
 
 ## Getting Started
 

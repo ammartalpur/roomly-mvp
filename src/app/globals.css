@@ -62,6 +62,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .booking-checked_in { border-color: #a9d6db; background: #ecf8f9; color: #25646b; }
 .booking-completed { border-color: #c7d0ca; background: #f2f5f3; color: #4e5d55; }
 .booking-cancelled, .booking-no_show { border-color: #efc4c0; background: #fff3f2; color: #a33c34; }
+.payment-unpaid { border-color: #ead49d; background: #fff8e7; color: #7c5d13; }
+.payment-partial { border-color: #a9d6db; background: #ecf8f9; color: #25646b; }
+.payment-paid { border-color: #add7bd; background: #edf9f1; color: #2e6b46; }
+.payment-refunded { border-color: #d4c6e8; background: #f6f1fb; color: #65458c; }
 
 .field { display: flex; flex-direction: column; gap: .45rem; color: #3c4a43; font-size: .78rem; font-weight: 650; }
 .field input, .field select, .field textarea, input:not([type="hidden"]), select, textarea {

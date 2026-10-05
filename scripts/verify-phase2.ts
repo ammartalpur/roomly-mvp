@@ -1,6 +1,10 @@
-import "dotenv/config";
 import { randomUUID } from "node:crypto";
-import { prisma } from "../src/lib/prisma";
+import { loadEnvConfig } from "@next/env";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../src/generated/prisma/client";
+
+loadEnvConfig(process.cwd());
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 const suffix = randomUUID().slice(0, 8);
 const userId = `test-user-${suffix}`;

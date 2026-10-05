@@ -1,0 +1,22 @@
+-- Phase 5: reporting, manual payments, and SaaS administration.
+CREATE TYPE "PaymentStatus" AS ENUM ('UNPAID', 'PARTIAL', 'PAID', 'REFUNDED');
+CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'BANK_TRANSFER', 'CARD', 'ONLINE');
+CREATE TYPE "SubscriptionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'CANCELLED');
+ALTER TABLE "User" ADD COLUMN "isPlatformAdmin" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Organization" ADD COLUMN "isActive" BOOLEAN NOT NULL DEFAULT true, ADD COLUMN "supportNotes" TEXT;
+ALTER TABLE "Booking" ADD COLUMN "quotedAmount" DECIMAL(10,2) NOT NULL DEFAULT 0, ADD COLUMN "currency" TEXT NOT NULL DEFAULT 'PKR', ADD COLUMN "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'UNPAID';
+UPDATE "Booking" AS booking SET "quotedAmount" = CASE WHEN resource."pricingType"::text = 'FREE' THEN 0 WHEN resource."pricingType"::text = 'HOURLY' THEN ROUND((resource.price * EXTRACT(EPOCH FROM (booking."endsAt" - booking."startsAt")) / 3600)::numeric, 2) WHEN resource."pricingType"::text = 'DAILY' THEN resource.price * GREATEST(1, CEIL(EXTRACT(EPOCH FROM (booking."endsAt" - booking."startsAt")) / 86400)) ELSE resource.price END, "currency" = resource.currency FROM "Resource" AS resource WHERE booking."resourceId" = resource.id;
+CREATE TABLE "Payment" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NULL, "bookingId" TEXT NOT NULL, "recordedByUserId" TEXT, "amount" DECIMAL(10,2) NOT NULL, "currency" TEXT NOT NULL DEFAULT 'PKR', "status" "PaymentStatus" NOT NULL, "method" "PaymentMethod" NOT NULL, "reference" TEXT, "notes" TEXT, "paidAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Payment_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Plan" ("id" TEXT NOT NULL, "name" TEXT NOT NULL, "slug" TEXT NOT NULL, "description" TEXT, "monthlyPrice" DECIMAL(10,2) NOT NULL DEFAULT 0, "currency" TEXT NOT NULL DEFAULT 'USD', "isActive" BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Plan_pkey" PRIMARY KEY ("id"));
+CREATE TABLE "Subscription" ("id" TEXT NOT NULL, "organizationId" TEXT NOT NULL, "planId" TEXT NOT NULL, "status" "SubscriptionStatus" NOT NULL DEFAULT 'ACTIVE', "startsAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "endsAt" TIMESTAMPTZ(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL, CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id"));
+CREATE UNIQUE INDEX "Plan_slug_key" ON "Plan"("slug");
+CREATE UNIQUE INDEX "Subscription_organizationId_key" ON "Subscription"("organizationId");
+CREATE INDEX "Payment_organizationId_paidAt_idx" ON "Payment"("organizationId", "paidAt");
+CREATE INDEX "Payment_bookingId_idx" ON "Payment"("bookingId");
+CREATE INDEX "Subscription_planId_status_idx" ON "Subscription"("planId", "status");
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_bookingId_fkey" FOREIGN KEY ("bookingId") REFERENCES "Booking"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_recordedByUserId_fkey" FOREIGN KEY ("recordedByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_planId_fkey" FOREIGN KEY ("planId") REFERENCES "Plan"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+INSERT INTO "Plan" ("id", "name", "slug", "description", "monthlyPrice", "currency", "isActive", "updatedAt") VALUES ('plan_starter', 'Starter', 'starter', 'For small coworking teams getting started.', 19, 'USD', true, CURRENT_TIMESTAMP), ('plan_growth', 'Growth', 'growth', 'For growing multi-resource businesses.', 49, 'USD', true, CURRENT_TIMESTAMP), ('plan_business', 'Business', 'business', 'For established operators with multiple locations.', 99, 'USD', true, CURRENT_TIMESTAMP);

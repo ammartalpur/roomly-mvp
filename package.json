@@ -2,17 +2,24 @@
   "name": "roomly",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --config prisma7.config.ts && next build",
     "start": "next start",
+    "postinstall": "prisma generate --config prisma7.config.ts",
     "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate --config prisma7.config.ts",
+    "db:migrate": "prisma migrate dev --config prisma7.config.ts",
+    "db:deploy": "prisma migrate deploy --config prisma7.config.ts",
     "db:studio": "prisma studio",
-    "verify:phase2": "tsx scripts/verify-phase2.ts"
+    "verify:phase2": "tsx scripts/verify-phase2.ts",
+    "seed:phase5": "tsx scripts/seed-phase5.ts"
   },
   "dependencies": {
+    "@next/env": "16.3.8",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "bcryptjs": "^3.0.3",
