@@ -2,6 +2,8 @@
 
 Foundation for a multi-tenant coworking management SaaS.
 
+See the [Room Maker and Room Booker guide](docs/ROOMLY_USER_GUIDE.md) for complete product instructions.
+
 ### Included
 
 - Local email/password authentication with signed, HTTP-only sessions

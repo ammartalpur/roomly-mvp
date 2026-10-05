@@ -4,7 +4,7 @@ import { compare, hash } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, deleteSession } from "@/lib/session";
+import { createSession, deleteSession, isSessionConfigured } from "@/lib/session";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -20,25 +20,36 @@ export async function signupAction(_: AuthState, formData: FormData): Promise<Au
     password: formData.get("password"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check your details" };
+  if (!isSessionConfigured()) {
+    console.error("Signup blocked: SESSION_SECRET is missing or shorter than 32 characters");
+    return { error: "Account creation is temporarily unavailable. Please try again later." };
+  }
 
-  const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (existing) return { error: "An account with this email already exists" };
+  let destination: "/dashboard" | "/onboarding";
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (existing) return { error: "An account with this email already exists" };
 
-  const passwordHash = await hash(parsed.data.password, 12);
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: { name: parsed.data.name, email: parsed.data.email, passwordHash },
+    const passwordHash = await hash(parsed.data.password, 12);
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { name: parsed.data.name, email: parsed.data.email, passwordHash },
+      });
+      await tx.organizationMember.updateMany({
+        where: { invitedEmail: parsed.data.email, userId: null },
+        data: { userId: created.id },
+      });
+      return created;
     });
-    await tx.organizationMember.updateMany({
-      where: { invitedEmail: parsed.data.email, userId: null },
-      data: { userId: created.id },
-    });
-    return created;
-  });
 
-  await createSession(user.id);
-  const membership = await prisma.organizationMember.findFirst({ where: { userId: user.id } });
-  redirect(membership ? "/dashboard" : "/onboarding");
+    await createSession(user.id);
+    const membership = await prisma.organizationMember.findFirst({ where: { userId: user.id } });
+    destination = membership ? "/dashboard" : "/onboarding";
+  } catch (error) {
+    console.error("Signup failed", error);
+    return { error: "We could not create your account right now. Please try again." };
+  }
+  redirect(destination);
 }
 
 export async function loginAction(_: AuthState, formData: FormData): Promise<AuthState> {
@@ -47,15 +58,26 @@ export async function loginAction(_: AuthState, formData: FormData): Promise<Aut
     password: formData.get("password"),
   });
   if (!parsed.success) return { error: "Enter a valid email and password" };
-
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  if (!user || !(await compare(parsed.data.password, user.passwordHash))) {
-    return { error: "Email or password is incorrect" };
+  if (!isSessionConfigured()) {
+    console.error("Login blocked: SESSION_SECRET is missing or shorter than 32 characters");
+    return { error: "Login is temporarily unavailable. Please try again later." };
   }
 
-  await createSession(user.id);
-  const membership = await prisma.organizationMember.findFirst({ where: { userId: user.id } });
-  redirect(membership ? "/dashboard" : "/onboarding");
+  let destination: "/dashboard" | "/onboarding";
+  try {
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    if (!user || !(await compare(parsed.data.password, user.passwordHash))) {
+      return { error: "Email or password is incorrect" };
+    }
+
+    await createSession(user.id);
+    const membership = await prisma.organizationMember.findFirst({ where: { userId: user.id } });
+    destination = membership ? "/dashboard" : "/onboarding";
+  } catch (error) {
+    console.error("Login failed", error);
+    return { error: "We could not log you in right now. Please try again." };
+  }
+  redirect(destination);
 }
 
 export async function logoutAction() {
