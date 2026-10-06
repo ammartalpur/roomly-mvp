@@ -8,6 +8,9 @@ import { canManage, requireMembership, requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 
 export type PhotoFormState = { error?: string; success?: string } | undefined;
+export type WorkspaceFormState = { error?: string; success?: string } | undefined;
+
+class ExpectedActionError extends Error {}
 
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -23,7 +26,7 @@ function checked(formData: FormData, key: string) {
 
 async function managerContext() {
   const context = await requireMembership();
-  if (!canManage(context.membership.role)) throw new Error("You do not have permission to make this change");
+  if (!canManage(context.membership.role)) throw new ExpectedActionError("You do not have permission to make this change");
   return context;
 }
 
@@ -39,9 +42,39 @@ async function validateResourceRelations(organizationId: string, formData: FormD
     amenityIds.length ? prisma.amenity.count({ where: { id: { in: amenityIds }, organizationId } }) : 0,
   ]);
   if (!location || (floorId && !floor) || (categoryId && !category) || amenityCount !== amenityIds.length) {
-    throw new Error("One or more workspace selections are invalid");
+    throw new ExpectedActionError("One or more workspace selections are invalid");
   }
   return { locationId, floorId, categoryId, amenityIds };
+}
+
+type PreparedPhoto = { url: string; cloudinaryPublicId: string | null; alt: string | null };
+
+async function preparePhoto(formData: FormData, organizationId: string, required: boolean): Promise<{ photo: PreparedPhoto | null; error?: string }> {
+  const file = formData.get("file");
+  let url = text(formData, "url");
+  let cloudinaryPublicId: string | null = null;
+  const hasFile = file instanceof File && file.size > 0;
+
+  if (!hasFile && !url) return required ? { photo: null, error: "Choose an image file or provide an image URL" } : { photo: null };
+  if (hasFile) {
+    if (!file.type.startsWith("image/")) return { photo: null, error: "Only image files can be uploaded" };
+    if (file.size > 5 * 1024 * 1024) return { photo: null, error: "Images must be 5 MB or smaller" };
+    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) return { photo: null, error: "Image uploads are not configured yet. Add an image URL instead." };
+    cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
+    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    const uploaded = await cloudinary.uploader.upload(`data:${file.type};base64,${base64}`, { folder: `roomly/${organizationId}/workspaces`, resource_type: "image" });
+    url = uploaded.secure_url;
+    cloudinaryPublicId = uploaded.public_id;
+  } else {
+    try {
+      const parsed = new URL(url);
+      if (!["http:", "https:"].includes(parsed.protocol)) return { photo: null, error: "Enter a valid HTTP or HTTPS image URL" };
+    } catch {
+      return { photo: null, error: "Enter a valid image URL" };
+    }
+  }
+  return { photo: { url, cloudinaryPublicId, alt: optional(formData, "alt") } };
 }
 
 export async function createOrganizationAction(formData: FormData) {
@@ -194,60 +227,65 @@ export async function deleteAmenityAction(formData: FormData) {
   revalidatePath("/dashboard/amenities");
 }
 
-export async function createResourceAction(formData: FormData) {
-  const { membership } = await managerContext();
-  const { locationId, floorId, categoryId, amenityIds } = await validateResourceRelations(membership.organizationId, formData);
-  const name = text(formData, "name");
-  let slug = slugify(name);
-  if (await prisma.resource.findUnique({ where: { organizationId_slug: { organizationId: membership.organizationId, slug } } })) {
-    slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
-  }
-  const resource = await prisma.resource.create({
-    data: {
-      organizationId: membership.organizationId,
-      locationId,
-      floorId,
-      categoryId,
-      name,
-      slug,
-      description: optional(formData, "description"),
-      capacity: Math.max(1, Number(text(formData, "capacity")) || 1),
-      pricingType: (text(formData, "pricingType") || "HOURLY") as "HOURLY" | "DAILY" | "MONTHLY" | "FIXED" | "FREE",
-      price: Number(text(formData, "price")) || 0,
-      currency: text(formData, "currency") || "PKR",
-      isPublic: checked(formData, "isPublic"),
-      amenities: { create: amenityIds.map((amenityId) => ({ amenityId })) },
-    },
-  });
-  redirect(`/dashboard/workspaces/${resource.id}`);
-}
-
-export async function updateResourceAction(formData: FormData) {
-  const { membership } = await managerContext();
-  const id = text(formData, "id");
-  const resource = await prisma.resource.findFirst({ where: { id, organizationId: membership.organizationId } });
-  if (!resource) throw new Error("Workspace not found");
-  const { locationId, floorId, categoryId, amenityIds } = await validateResourceRelations(membership.organizationId, formData);
-  await prisma.$transaction([
-    prisma.resourceAmenity.deleteMany({ where: { resourceId: id } }),
-    prisma.resource.update({
-      where: { id },
+export async function createResourceAction(_: WorkspaceFormState, formData: FormData): Promise<WorkspaceFormState> {
+  let resourceId: string;
+  try {
+    const { membership } = await managerContext();
+    const { locationId, floorId, categoryId, amenityIds } = await validateResourceRelations(membership.organizationId, formData);
+    const name = text(formData, "name");
+    if (name.length < 2) return { error: "Enter a workspace name" };
+    const prepared = await preparePhoto(formData, membership.organizationId, false);
+    if (prepared.error) return { error: prepared.error };
+    let slug = slugify(name) || "workspace";
+    if (await prisma.resource.findUnique({ where: { organizationId_slug: { organizationId: membership.organizationId, slug } } })) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+    const resource = await prisma.resource.create({
       data: {
-        name: text(formData, "name"),
-        description: optional(formData, "description"),
+        organizationId: membership.organizationId,
         locationId,
         floorId,
         categoryId,
+        name,
+        slug,
+        description: optional(formData, "description"),
         capacity: Math.max(1, Number(text(formData, "capacity")) || 1),
         pricingType: (text(formData, "pricingType") || "HOURLY") as "HOURLY" | "DAILY" | "MONTHLY" | "FIXED" | "FREE",
         price: Number(text(formData, "price")) || 0,
         currency: text(formData, "currency") || "PKR",
+        isPublic: checked(formData, "isPublic"),
         amenities: { create: amenityIds.map((amenityId) => ({ amenityId })) },
+        photos: prepared.photo ? { create: prepared.photo } : undefined,
       },
-    }),
-  ]);
-  revalidatePath(`/dashboard/workspaces/${id}`);
-  revalidatePath("/dashboard/workspaces");
+    });
+    resourceId = resource.id;
+  } catch (error) {
+    if (error instanceof ExpectedActionError) return { error: error.message };
+    console.error("Creating workspace failed", error);
+    return { error: "The workspace could not be created right now. Please try again." };
+  }
+  redirect(`/dashboard/workspaces/${resourceId}?created=1`);
+}
+
+export async function updateResourceAction(_: WorkspaceFormState, formData: FormData): Promise<WorkspaceFormState> {
+  try {
+    const { membership } = await managerContext();
+    const id = text(formData, "id");
+    const resource = await prisma.resource.findFirst({ where: { id, organizationId: membership.organizationId } });
+    if (!resource) return { error: "Workspace not found" };
+    const { locationId, floorId, categoryId, amenityIds } = await validateResourceRelations(membership.organizationId, formData);
+    const name = text(formData, "name");
+    if (name.length < 2) return { error: "Enter a workspace name" };
+    await prisma.$transaction([
+      prisma.resourceAmenity.deleteMany({ where: { resourceId: id } }),
+      prisma.resource.update({ where: { id }, data: { name, description: optional(formData, "description"), locationId, floorId, categoryId, capacity: Math.max(1, Number(text(formData, "capacity")) || 1), pricingType: (text(formData, "pricingType") || "HOURLY") as "HOURLY" | "DAILY" | "MONTHLY" | "FIXED" | "FREE", price: Number(text(formData, "price")) || 0, currency: text(formData, "currency") || "PKR", amenities: { create: amenityIds.map((amenityId) => ({ amenityId })) } } }),
+    ]);
+    revalidatePath(`/dashboard/workspaces/${id}`);
+    revalidatePath("/dashboard/workspaces");
+    return { success: "Workspace changes saved" };
+  } catch (error) {
+    if (error instanceof ExpectedActionError) return { error: error.message };
+    console.error("Updating workspace failed", error);
+    return { error: "The workspace could not be updated right now. Please try again." };
+  }
 }
 
 export async function toggleResourceStatusAction(formData: FormData) {
@@ -270,32 +308,10 @@ export async function addPhotoAction(_: PhotoFormState, formData: FormData): Pro
     const resource = await prisma.resource.findFirst({ where: { id: resourceId, organizationId: membership.organizationId } });
     if (!resource) return { error: "Workspace not found" };
 
-    const file = formData.get("file");
-    let url = text(formData, "url");
-    let cloudinaryPublicId: string | null = null;
-    if (!(file instanceof File && file.size > 0) && !url) {
-      return { error: "Choose an image file or provide an image URL" };
-    }
-
-    if (file instanceof File && file.size > 0) {
-      if (!file.type.startsWith("image/")) return { error: "Only image files can be uploaded" };
-      if (file.size > 5 * 1024 * 1024) return { error: "Images must be 5 MB or smaller" };
-      const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-        return { error: "Image uploads are not configured yet. Add an image URL instead." };
-      }
-      cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
-      const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-      const uploaded = await cloudinary.uploader.upload(`data:${file.type};base64,${base64}`, {
-        folder: `roomly/${membership.organizationId}/${resourceId}`,
-        resource_type: "image",
-      });
-      url = uploaded.secure_url;
-      cloudinaryPublicId = uploaded.public_id;
-    }
-
+    const prepared = await preparePhoto(formData, membership.organizationId, true);
+    if (prepared.error || !prepared.photo) return { error: prepared.error ?? "Choose an image" };
     await prisma.resourcePhoto.create({
-      data: { resourceId, url, cloudinaryPublicId, alt: optional(formData, "alt") },
+      data: { resourceId, ...prepared.photo },
     });
     revalidatePath(`/dashboard/workspaces/${resourceId}`);
     return { success: "Photo added successfully" };

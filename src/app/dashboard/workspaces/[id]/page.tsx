@@ -7,8 +7,9 @@ import { WorkspaceForm } from "@/components/workspace-form";
 import { requireMembership } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export default async function WorkspaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WorkspaceDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
   const { id } = await params;
+  const query = await searchParams;
   const { membership } = await requireMembership();
   const organizationId = membership.organizationId;
   const [resource, locations, categories, amenities] = await Promise.all([
@@ -52,6 +53,7 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader eyebrow="Workspace details" title={resource.name} description="Update inventory details, pricing, amenities, and photos." />
+      {query.created === "1" && <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-800" role="status">Workspace created successfully. Its details and cover image are ready.</div>}
       <WorkspaceForm action={updateResourceAction} locations={locations} floors={floors} categories={categories} amenities={amenities} resource={values} />
       <section className="panel mt-6 p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Workspace photos</h2>
