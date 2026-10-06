@@ -1,8 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { notFound } from "next/navigation";
-import { addPhotoAction, deletePhotoAction, updateResourceAction } from "@/app/actions/foundation";
-import { FormButton } from "@/components/form-button";
+import { deletePhotoAction, updateResourceAction } from "@/app/actions/foundation";
 import { PageHeader } from "@/components/page-header";
+import { PhotoUploadForm } from "@/components/photo-upload-form";
 import { WorkspaceForm } from "@/components/workspace-form";
 import { requireMembership } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -56,13 +56,7 @@ export default async function WorkspaceDetailPage({ params }: { params: Promise<
       <section className="panel mt-6 p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Workspace photos</h2>
         <p className="mt-1 text-sm text-[#78817c]">Upload to Cloudinary when configured, or paste an existing hosted image URL. The first image becomes the cover.</p>
-        <form action={addPhotoAction} className="mt-5 grid gap-3 sm:grid-cols-2">
-          <input type="hidden" name="resourceId" value={resource.id} />
-          <label className="field"><span>Image file</span><input name="file" type="file" accept="image/*" /></label>
-          <label className="field"><span>Or image URL</span><input name="url" type="url" placeholder="https://res.cloudinary.com/..." /></label>
-          <label className="field"><span>Alt text</span><input name="alt" placeholder={resource.name} /></label>
-          <div className="flex items-end"><FormButton>Add photo</FormButton></div>
-        </form>
+        <PhotoUploadForm resourceId={resource.id} resourceName={resource.name} />
         {resource.photos.length ? (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {resource.photos.map((photo) => (

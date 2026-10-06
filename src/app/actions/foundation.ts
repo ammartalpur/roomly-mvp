@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { canManage, requireMembership, requireUser } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 
+export type PhotoFormState = { error?: string; success?: string } | undefined;
+
 function text(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -261,35 +263,46 @@ export async function toggleResourceStatusAction(formData: FormData) {
   revalidatePath("/dashboard/workspaces", "layout");
 }
 
-export async function addPhotoAction(formData: FormData) {
-  const { membership } = await managerContext();
-  const resourceId = text(formData, "resourceId");
-  const resource = await prisma.resource.findFirst({ where: { id: resourceId, organizationId: membership.organizationId } });
-  if (!resource) throw new Error("Workspace not found");
-  const file = formData.get("file");
-  let url = text(formData, "url");
-  let cloudinaryPublicId: string | null = null;
-  if (file instanceof File && file.size > 0) {
-    if (!file.type.startsWith("image/")) throw new Error("Only image files can be uploaded");
-    if (file.size > 5 * 1024 * 1024) throw new Error("Images must be 5 MB or smaller");
-    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
-    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-      throw new Error("Cloudinary is not configured. Add an image URL instead.");
+export async function addPhotoAction(_: PhotoFormState, formData: FormData): Promise<PhotoFormState> {
+  try {
+    const { membership } = await managerContext();
+    const resourceId = text(formData, "resourceId");
+    const resource = await prisma.resource.findFirst({ where: { id: resourceId, organizationId: membership.organizationId } });
+    if (!resource) return { error: "Workspace not found" };
+
+    const file = formData.get("file");
+    let url = text(formData, "url");
+    let cloudinaryPublicId: string | null = null;
+    if (!(file instanceof File && file.size > 0) && !url) {
+      return { error: "Choose an image file or provide an image URL" };
     }
-    cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
-    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    const uploaded = await cloudinary.uploader.upload(`data:${file.type};base64,${base64}`, {
-      folder: `roomly/${membership.organizationId}/${resourceId}`,
-      resource_type: "image",
+
+    if (file instanceof File && file.size > 0) {
+      if (!file.type.startsWith("image/")) return { error: "Only image files can be uploaded" };
+      if (file.size > 5 * 1024 * 1024) return { error: "Images must be 5 MB or smaller" };
+      const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+      if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+        return { error: "Image uploads are not configured yet. Add an image URL instead." };
+      }
+      cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
+      const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+      const uploaded = await cloudinary.uploader.upload(`data:${file.type};base64,${base64}`, {
+        folder: `roomly/${membership.organizationId}/${resourceId}`,
+        resource_type: "image",
+      });
+      url = uploaded.secure_url;
+      cloudinaryPublicId = uploaded.public_id;
+    }
+
+    await prisma.resourcePhoto.create({
+      data: { resourceId, url, cloudinaryPublicId, alt: optional(formData, "alt") },
     });
-    url = uploaded.secure_url;
-    cloudinaryPublicId = uploaded.public_id;
+    revalidatePath(`/dashboard/workspaces/${resourceId}`);
+    return { success: "Photo added successfully" };
+  } catch (error) {
+    console.error("Adding workspace photo failed", error);
+    return { error: "The photo could not be added right now. Please try again." };
   }
-  if (!url) throw new Error("Choose an image file or provide an image URL");
-  await prisma.resourcePhoto.create({
-    data: { resourceId, url, cloudinaryPublicId, alt: optional(formData, "alt") },
-  });
-  revalidatePath(`/dashboard/workspaces/${resourceId}`);
 }
 
 export async function deletePhotoAction(formData: FormData) {
