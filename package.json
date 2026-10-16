@@ -16,7 +16,8 @@
     "db:deploy": "prisma migrate deploy --config prisma7.config.ts",
     "db:studio": "prisma studio",
     "verify:phase2": "tsx scripts/verify-phase2.ts",
-    "seed:phase5": "tsx scripts/seed-phase5.ts"
+    "seed:phase5": "tsx scripts/seed-phase5.ts",
+    "seed:marketplace": "tsx scripts/seed-marketplace.ts"
   },
   "dependencies": {
     "@next/env": "16.3.8",

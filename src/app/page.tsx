@@ -1,32 +1,30 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Layers3, Users2 } from "lucide-react";
+import { Building2, CalendarCheck2, MapPin, Search, ShieldCheck } from "lucide-react";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#f7f8f5] text-[#15211c]">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <Logo />
         <div className="flex items-center gap-3">
           <Link className="button button-ghost" href="/login">Log in</Link>
-          <Link className="button button-primary" href="/signup">Get started</Link>
+          <Link className="button button-primary" href="/signup">List your space</Link>
         </div>
       </nav>
-      <section className="mx-auto grid max-w-6xl gap-16 px-6 pb-24 pt-20 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
+      <section className="mx-auto grid max-w-7xl gap-14 px-6 pb-20 pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
         <div>
-          <span className="eyebrow">Workspace operations, organized</span>
-          <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-[-0.055em] sm:text-7xl">Set up every space your business manages.</h1>
-          <p className="mt-7 max-w-xl text-lg leading-8 text-[#5d6963]">Roomly gives coworking teams one clear place for locations, floors, rooms, desks, amenities, and staff access.</p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Link className="button button-primary button-lg" href="/signup">Create your workspace <ArrowRight size={17} /></Link>
-            <Link className="button button-secondary button-lg" href="/login">I already have an account</Link>
-          </div>
+          <span className="eyebrow">Rooms for the way you work</span>
+          <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-[-0.055em] sm:text-7xl">Your next great meeting starts here.</h1>
+          <p className="mt-7 max-w-xl text-lg leading-8 text-[#5d6963]">Discover meeting rooms, private offices, and desks. See real availability and book in minutes.</p>
+          <form className="market-home-search mt-9" action="/spaces"><label><MapPin size={17} /><input name="city" placeholder="Where do you need a room?" aria-label="City or area" /></label><button className="button button-primary button-lg"><Search size={17} /> Search spaces</button></form>
+          <div className="mt-6 flex flex-wrap gap-5 text-sm text-[#5e6d65]"><span className="flex items-center gap-2"><ShieldCheck size={16} /> Live availability</span><span className="flex items-center gap-2"><CalendarCheck2 size={16} /> Easy booking management</span></div>
         </div>
         <div className="rounded-[2rem] border border-[#dfe5df] bg-white p-4 shadow-[0_30px_80px_rgba(37,58,48,.12)]">
           <div className="rounded-[1.5rem] bg-[#173f35] p-7 text-white">
-            <p className="text-sm text-[#aed0c4]">WorkNest Coworking</p>
-            <h2 className="mt-1 text-2xl font-semibold">Hyderabad Branch</h2>
+            <p className="text-sm text-[#aed0c4]">Available tomorrow</p>
+            <h2 className="mt-1 text-2xl font-semibold">Find the right room</h2>
             <div className="mt-8 space-y-3">
-              {[[Building2, "Ground floor", "3 workspaces"], [Layers3, "First floor", "3 workspaces"], [Users2, "Team access", "Owner · Admin · Staff"]].map(([Icon, title, detail]) => {
+              {[[Building2, "Meeting rooms", "Private, equipped, ready"], [CalendarCheck2, "Real-time slots", "No back-and-forth"], [ShieldCheck, "Trusted booking", "Manage it online"]].map(([Icon, title, detail]) => {
                 const ItemIcon = Icon as typeof Building2;
                 return <div key={String(title)} className="flex items-center gap-4 rounded-2xl bg-white/10 p-4"><ItemIcon size={20} /><div><p className="font-medium">{String(title)}</p><p className="text-sm text-[#aed0c4]">{String(detail)}</p></div></div>;
               })}
@@ -34,6 +32,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      <section className="border-y border-[#dde4de] bg-white"><div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 sm:grid-cols-3"><div><strong className="text-lg">Search</strong><p className="mt-1 text-sm text-[#68756e]">Choose a city, date, duration, and group size.</p></div><div><strong className="text-lg">Book</strong><p className="mt-1 text-sm text-[#68756e]">Pick a live time slot and reserve as a guest.</p></div><div><strong className="text-lg">Meet</strong><p className="mt-1 text-sm text-[#68756e]">Bring your confirmation number and get to work.</p></div></div></section>
     </main>
   );
 }
